@@ -1,4 +1,4 @@
-# Author: Nick Knowles (knowlen@wwu.edu)
+#Author: Nick Knowles (knowlen@wwu.edu)
 # Date: Feb 22, 2017
 # This is a niave baseline implimentation for a generative machine learning model that 
 # attempts to approximate a given image using an evolutionary algorithm.
@@ -31,7 +31,7 @@ class population:
 #                     dtype=int)) for i in xrange(a_size)]
 #[[[int(255*random.random()) for k in xrange(a_size)] for j in xrange(a_size)] for i in xrange(4)]
        # [int(255*random.random()) for i in xrange(size-len(champions))]
-        self.champions = champions
+        self.children = []
         for champ in champions:
             self.pop.append(champ)
             
@@ -41,21 +41,53 @@ class population:
 
     def eval(self, label):
         # for c in self.pop
-        #   
+        #  concurrency would go here
         for can in self.pop:
             error = np.sum(np.absolute(np.subtract(label, can.img)))
             can.fitness = 1.0/error
              
     
-    def crossover():
-        
-        return
    
+
+
+def crossover(self):
+    mask_a = np.random.choice(2, size=(450,450,3))
+    mask_b = (mask_a - 1) * - 1
+
+
+    return
+   
+
+
+def tournament_select(pop, t_size, k):
+    # Tournament Selection
+    # Apply probability dist if time:
+    #   -sort on fitness
+    selected = candidate()
+    for i in xrange(k):
+        sample = random.sample(pop, t_size)
+        for c in sample:
+            if selected.fitness < c.fitness:
+                selected = c
+            elif selected.fitness == c.fitness:
+                selected = random.choice([c, selected]) #might not need the []
+     
+    return selected 
+
+
+def replacement():
+    # truncated: take best N from children & pop
+    # elitest: take a few best from pop, rest children
+    # generational: new p.pop = p.children
+    pass
+
+## ARGPARSE HERE
 # --START--
 #   Initialize champion list, c.
 #   Load the target image, label.
 #   Initialize a new population object, p.
 #
+
 
 label = sci.imread('/home/knowlen/Pictures/hutch_research.png')
 c = [candidate()]
@@ -69,10 +101,15 @@ for i in xrange(450):
 
 '''
 
-p.eval(label)
-for i in p.pop:
-    print i.fitness
+# random sample t_size candidates from population
+# argparse this parameter later
+t_size = 5
 
+p.eval(label)
+asd = tournament_select(p.pop, 2, 2)
+print asd.fitness 
+#for i in sample:
+#    print i.fitness
 
 #sci.imsave('hr_adversary1.png', c[0].img)
 count = 0 
