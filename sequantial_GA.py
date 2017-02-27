@@ -7,8 +7,7 @@ import scipy.misc as sci
 import numpy as np
 import random, time, threading
 import concurrent.futures
-label_shape = [450,450,3]
-
+label_shape = []
 class Semaphore(threading._Semaphore):
     wait = threading._Semaphore.acquire
     signal = threading._Semaphore.release
@@ -22,6 +21,9 @@ class candidate:
     global label_shape
     def __init__(self, init_state=""):
         self.fitness = 0
+        self.rfit = 0
+        self.bfit = 0
+        self.gfit = 0
         if init_state == "blank":
             self.img = np.empty(label_shape)
         else:
@@ -61,7 +63,7 @@ def evaluate(sample, label):
          
     
 def crossover(p_a, p_b):
-    mask_a = np.random.choice(2, size=(450,450,3))
+    mask_a = np.random.choice(2, size=label_shape)
     mask_b = (mask_a - 1) * - 1
     c_a = candidate("blank") 
     c_a.img = (p_a.img * mask_a) + (p_b.img * mask_b)
@@ -72,9 +74,9 @@ def crossover(p_a, p_b):
 
 def mutate(child):
     #look into mutation techniques     
-    mask = np.random.choice(2, size=(450,450,3))
-    neg_mask = -np.random.choice(2, size=(450,450,3))
-    scalars = np.random.rand(450,450,3) #* mask) * neg_mask
+    mask = np.random.choice(2, size=label_shape)
+    neg_mask = -np.random.choice(2, size=label_shape)
+    scalars = np.random.rand(38,38,4) #* mask) * neg_mask
 	#seq element-wise multiplication might be better here
     child.img = child.img + (((child.img*scalars) * mask) * neg_mask)
     
@@ -110,34 +112,36 @@ def replacement():
 #
 
 
-label = sci.imread('/home/knowlen/Pictures/hutch_research.png')
+label = sci.imread('/home/knowlen/Pictures/goog.png')
+label = sci.imresize(label,80)
 c = candidate()
+label_shape = label.shape
 # random sample t_size candidates from population
 # argparse this parameter later
-t_size = 10 
-p = population(50) 
+t_size = 5
+p = population(5000) 
 #p.children.append(c)
 epoch = 0
 evaluate(p.pop, label)
 for i in p.pop:
     print i.fitness
-while epoch < 100: 
+while epoch < 200: 
     #for c in p.pop:
 #	Thread(evaluate, [c], label)
     evaluate(p.pop, label)
     #with concurrent.futures.ThreadPoolExecutor(max_workers=50) as executor:
     #	future_to_url = {executor.submit(evaluate, c, label): c for c in p.pop}
 
-    for i in xrange(25):
-        parent_a = tournament_select(p.pop, t_size, 2)
-        parent_b = tournament_select(p.pop, t_size, 2)
+    for i in xrange(2500):
+        parent_a = tournament_select(p.pop, t_size, 15)
+        parent_b = tournament_select(p.pop, t_size, 5)
         while(parent_a == parent_b):
             parent_b = tournament_select(p.pop, t_size, 2)
        
         child_a, child_b = crossover(parent_a, parent_b)
-	if random.random() > 0.55:
-	    mutate(child_a)
 	if random.random() > 0.95:
+	    mutate(child_a)
+	if random.random() > 0.85:
 	    mutate(child_b)
 # EVAL CHILD FITNESS HERE
 # when you change impliment truncated replacement
@@ -148,19 +152,17 @@ while epoch < 100:
             p.pop.remove(parent_a) #change later
         else:
             p.pop.remove(parent_b)
-        print len(p.pop)
     
     p.pop = p.children
     p.children = [] # possible memory errors here.
     epoch = epoch + 1
-    print epoch
-    print len(p.pop)
+#    print epoch
 
 evaluate(p.pop, label)
 p.pop.sort(key=lambda x: x.fitness, reverse=True)
 for i in p.pop:
     print i.fitness
-sci.imshow(p.pop[0].img)
+sci.imshow(sci.imresize(p.pop[0].img, 1000))
 #sci.imsave('hr_adversary1.png', c[0].img)
 
 
