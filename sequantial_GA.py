@@ -7,6 +7,8 @@ import scipy.misc as sci
 import numpy as np
 import random, time, threading
 import concurrent.futures
+import argparse
+import os
 label_shape = []
 
 def get_parser():
@@ -18,7 +20,7 @@ def get_parser():
     parser.add_argument('image_file', type=str, help='The image file for our supervised training.')
     parser.add_argument('results_folder', type=str, help='The folder to print result images.')
     parser.add_argument('-epochs', type=int, default=100, help='Number of iterations to train over')
-    parser.add_argument('-mutation_prob', nargs='+', type=float, default=[0.1, 0.05],
+    parser.add_argument('-mutation_prob', nargs='+', type=float, default=[0.15, 0.05],
                         help='chance for a candidate to be randomly mutated.\nCan assign up to 2 unique values here (one for each child produced in crossover).')
     parser.add_argument("-print_on_epoch",
                         type=int, default=0, 
@@ -93,13 +95,15 @@ def evaluate(sample, label):
     Updates a candidate's fitness. 
     """
     for can in sample:
-        #error = np.sum(np.absolute(np.subtract(label, can.img)))
+        error = np.sum(np.absolute(np.subtract(label, can.img)))
         #can.fitness = 1.0/error
-        error = 0;
-        for x,a in zip(can.img,label):
-            for y,b in zip(x,a):
-                for z,c in zip(y,b):
-                    error+= abs(c - z)
+        
+        #error = 0;
+        #for x,a in zip(can.img,label):
+        #    for y,b in zip(x,a):
+        #        for z,c in zip(y,b):
+        #            error+= abs(c - z)
+        
         can.fitness = 1.0/error
 
 def crossover(p_a, p_b):
@@ -156,16 +160,9 @@ def replacement():
     # generational: new p.pop = p.children
     pass
 
-## ARGPARSE HERE
-# --START--
-#   Initialize champion list, c.
-#   Load the target image, label.
-#   Initialize a new population object, p.
-#
 
 if __name__ == "__main__":
     args = get_parser().parse_args()
-    
     label = sci.imread(args.image_file)
     label = sci.imread('/home/knowlen/Pictures/goog.png')
     label = sci.imresize(label, args.ds)
@@ -174,28 +171,27 @@ if __name__ == "__main__":
     p = population(args.P) 
     epoch = args.epochs
     evaluate(p.pop, label)
+    iteration = 0
     for i in p.pop:
         print i.fitness
-    while epoch < 5: 
-        for c in p.pop:
-        	Thread(evaluate, [c], label)
-        #evaluate(p.pop, label)
+    while iteration < epoch: 
+       # for c in p.pop:
+       # 	Thread(evaluate, [c], label)
+        evaluate(p.pop, label)
         #with concurrent.futures.ThreadPoolExecutor(max_workers=args.P) as executor: #possible race condition
-        #   future_to_url = {executor.submit(evaluate, c, label): c for c in p.pop}
+        #    future_to_url = {executor.submit(evaluate, c, label): c for c in p.pop}
 
-        for i in xrange(250):
+        for i in xrange(args.P/2):
             parent_a = tournament_select(p.pop, t_size, 3)
             parent_b = tournament_select(p.pop, t_size, 2)
             while(parent_a == parent_b):
                 parent_b = tournament_select(p.pop, t_size, 1)
            
             child_a, child_b = crossover(parent_a, parent_b)
-            if random.random() > 0.95:
+            if random.random() > (1-args.mutation_prob[0]):
                 mutate(child_a)
-            if random.random() > 0.85:
+            if random.random() > (1-args.mutation_prob[1]):
                 mutate(child_b)
-# EVAL CHILD FITNESS HERE
-# when you change impliment truncated replacement
             p.children.extend([child_a, child_b])
             #print parent_a.fitness
             #print parent_b.fitness
@@ -206,14 +202,16 @@ if __name__ == "__main__":
         
         p.pop = p.children
         p.children = [] # possible memory errors here.
-        epoch = epoch + 1
-        print epoch
+        iteration = iteration + 1
+        print iteration
 
     evaluate(p.pop, label)
     p.pop.sort(key=lambda x: x.fitness, reverse=True)
     for i in p.pop:
         print i.fitness
 #sci.imshow(sci.imresize(p.pop[0].img, 1000))
-    sci.imsave('./knowlen_GA_results/result.png', c[0].img)
-
+    out_fn = args.results_folder + '/results.png'
+    if not os.path.isdir(args.results_folder):
+        os.mkdir(args.results_folder) 
+    sci.imsave(out_fn, sci.imresize(p.pop[0].img, 100))
 
