@@ -8,6 +8,31 @@ import numpy as np
 import random, time, threading
 import concurrent.futures
 label_shape = []
+
+def get_parser():
+    """
+    Defines and returns argparse ArgumentParser object.
+    :return: ArgumentParser
+    """
+    parser = argparse.ArgumentParser("Genetic Algorithm for supervised image approximation.")
+    parser.add_argument('image_file', type=str, help='The image file for our supervised training.')
+    parser.add_argument('results_folder', type=str, help='The folder to print result images.')
+    parser.add_argument('-epochs', type=int, default=100, help='Number of iterations to train over')
+    parser.add_argument('-mutation_prob', nargs='+', type=float, default=[0.1, 0.05],
+                        help='chance for a candidate to be randomly mutated.\nCan assign up to 2 unique values here (one for each child produced in crossover).')
+    parser.add_argument("-print_on_epoch",
+                        type=int, default=0, 
+			help="Prints an image every interval of epochs specified.")
+    parser.add_argument('-P', type=int, default=500, help='Population size.')
+    parser.add_argument('-ds', type=float, default=80,
+                        help='Re-scales image to a resolution of "ds" % the origional (90 = %90 origional size).')
+    #parser.add_argument('-debug',action='' ,help='.')  
+
+    return parser
+
+
+
+
 class Semaphore(threading._Semaphore):
     wait = threading._Semaphore.acquire
     signal = threading._Semaphore.release
@@ -18,6 +43,12 @@ class Thread(threading.Thread):
         self.start()
 
 class candidate:
+    """
+    Defines the candidate object. 
+    :Attributes:
+        -fitness: how well this candidate performed on evaluation. 
+        -img: numpy matrix representation of the image. 
+    """
     global label_shape
     def __init__(self, init_state=""):
         self.fitness = 0
@@ -36,33 +67,46 @@ class candidate:
 # y = the number of pixel cols in the image
 #
 class population:
+    """
+    Defines the population object.
+    :Attributes:
+        -pop: A list of randomly initialized candidates. 
+        -children: The list of children produced by pop after crossover 
+                   and mutation. 
+    """
     def __init__(self, size):
     # look at hr sk sample code. 
-        #a_size = size-len(champions) #adjusted size
         self.pop = [candidate() for i in xrange(size)]
-# [(np.full(shape=(240,240, 4), fill_value=(int(255*random.random())),
-#                     dtype=int)) for i in xrange(a_size)]
-#[[[int(255*random.random()) for k in xrange(a_size)] for j in xrange(a_size)] for i in xrange(4)]
-       # [int(255*random.random()) for i in xrange(size-len(champions))]
         self.children = []
         #for champ in champions:
         #    self.pop.append(champ)
             
-    # needed? 
+    # maybe use if need at some point 
     #def __iter__(self):
-    #    return (i for i in (self.pop, self.champions))
+    #    return (i for i in (self.pop, self.children))
 
 
 
 def evaluate(sample, label):
-    # for c in self.pop
-    #  concurrency would go here
+    """
+    Evaluates how close a candidate is to the input image label. 
+    Updates a candidate's fitness. 
+    """
     for can in sample:
-        error = np.sum(np.absolute(np.subtract(label, can.img)))
+        #error = np.sum(np.absolute(np.subtract(label, can.img)))
+        #can.fitness = 1.0/error
+        error = 0;
+        for x,a in zip(can.img,label):
+            for y,b in zip(x,a):
+                for z,c in zip(y,b):
+                    error+= abs(c - z)
         can.fitness = 1.0/error
-         
-    
+
 def crossover(p_a, p_b):
+    """
+    Performs genetic crossover for 2 parent candidates. 
+    :Returns: 2 children candidates. 
+    """
     mask_a = np.random.choice(2, size=label_shape)
     mask_b = (mask_a - 1) * - 1
     c_a = candidate("blank") 
@@ -73,6 +117,10 @@ def crossover(p_a, p_b):
    
 
 def mutate(child):
+    """
+    Performs a genetic mutation on some child candidate. 
+    Updates the child's numpy matrix representation of some image. 
+    """
     #look into mutation techniques     
     mask = np.random.choice(2, size=label_shape)
     neg_mask = -np.random.choice(2, size=label_shape)
@@ -82,18 +130,23 @@ def mutate(child):
     
 
 def tournament_select(pop, t_size, k):
+    """
+    Selects a candidate psuedo-randomly from the population in a way 
+    that preserves diversity, but also favors higher fittness. 
+    :Returns: the selected candidate.
+    """
     # Tournament Selection
     # Look into applying probability dist if time:
     #   -sort on fitness
     #   -make a new sample_list, give most fit P entries, 2nd most 1-p^2 prob entries, ect..
     selected = candidate()
-    for i in xrange(1):
+    for i in xrange(k):
         sample = random.sample(pop, t_size)
         for c in sample:
             if selected.fitness < c.fitness:
                 selected = c
             elif selected.fitness == c.fitness:
-                selected = random.choice([c, selected]) #might not need the []
+                selected = random.choice([c, selected]) # might not need the []
     return selected 
 
 
@@ -101,7 +154,6 @@ def replacement():
     # truncated: take best N from children & pop
     # elitest: take a few best from pop, rest children
     # generational: new p.pop = p.children
-
     pass
 
 ## ARGPARSE HERE
@@ -111,58 +163,57 @@ def replacement():
 #   Initialize a new population object, p.
 #
 
-
-label = sci.imread('/home/knowlen/Pictures/goog.png')
-label = sci.imresize(label,80)
-c = candidate()
-label_shape = label.shape
-# random sample t_size candidates from population
-# argparse this parameter later
-t_size = 5
-p = population(5000) 
-#p.children.append(c)
-epoch = 0
-evaluate(p.pop, label)
-for i in p.pop:
-    print i.fitness
-while epoch < 200: 
-    #for c in p.pop:
-#	Thread(evaluate, [c], label)
+if __name__ == "__main__":
+    args = get_parser().parse_args()
+    
+    label = sci.imread(args.image_file)
+    label = sci.imread('/home/knowlen/Pictures/goog.png')
+    label = sci.imresize(label, args.ds)
+    label_shape = label.shape
+    t_size = 2 #add to argparse later. Should typically be 2 anyways. 
+    p = population(args.P) 
+    epoch = args.epochs
     evaluate(p.pop, label)
-    #with concurrent.futures.ThreadPoolExecutor(max_workers=50) as executor:
-    #	future_to_url = {executor.submit(evaluate, c, label): c for c in p.pop}
+    for i in p.pop:
+        print i.fitness
+    while epoch < 5: 
+        for c in p.pop:
+        	Thread(evaluate, [c], label)
+        #evaluate(p.pop, label)
+        #with concurrent.futures.ThreadPoolExecutor(max_workers=args.P) as executor: #possible race condition
+        #   future_to_url = {executor.submit(evaluate, c, label): c for c in p.pop}
 
-    for i in xrange(2500):
-        parent_a = tournament_select(p.pop, t_size, 15)
-        parent_b = tournament_select(p.pop, t_size, 5)
-        while(parent_a == parent_b):
+        for i in xrange(250):
+            parent_a = tournament_select(p.pop, t_size, 3)
             parent_b = tournament_select(p.pop, t_size, 2)
-       
-        child_a, child_b = crossover(parent_a, parent_b)
-	if random.random() > 0.95:
-	    mutate(child_a)
-	if random.random() > 0.85:
-	    mutate(child_b)
+            while(parent_a == parent_b):
+                parent_b = tournament_select(p.pop, t_size, 1)
+           
+            child_a, child_b = crossover(parent_a, parent_b)
+            if random.random() > 0.95:
+                mutate(child_a)
+            if random.random() > 0.85:
+                mutate(child_b)
 # EVAL CHILD FITNESS HERE
 # when you change impliment truncated replacement
-        p.children.extend([child_a, child_b])
-        print parent_a.fitness
-        print parent_b.fitness
-        if parent_a.fitness < parent_b.fitness:
-            p.pop.remove(parent_a) #change later
-        else:
-            p.pop.remove(parent_b)
-    
-    p.pop = p.children
-    p.children = [] # possible memory errors here.
-    epoch = epoch + 1
-#    print epoch
+            p.children.extend([child_a, child_b])
+            #print parent_a.fitness
+            #print parent_b.fitness
+            if parent_a.fitness < parent_b.fitness:
+                p.pop.remove(parent_a) #change later
+            else:
+                p.pop.remove(parent_b)
+        
+        p.pop = p.children
+        p.children = [] # possible memory errors here.
+        epoch = epoch + 1
+        print epoch
 
-evaluate(p.pop, label)
-p.pop.sort(key=lambda x: x.fitness, reverse=True)
-for i in p.pop:
-    print i.fitness
-sci.imshow(sci.imresize(p.pop[0].img, 1000))
-#sci.imsave('hr_adversary1.png', c[0].img)
+    evaluate(p.pop, label)
+    p.pop.sort(key=lambda x: x.fitness, reverse=True)
+    for i in p.pop:
+        print i.fitness
+#sci.imshow(sci.imresize(p.pop[0].img, 1000))
+    sci.imsave('./knowlen_GA_results/result.png', c[0].img)
 
 
