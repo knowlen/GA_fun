@@ -1,8 +1,10 @@
 #Author: Nick Knowles (knowlen@wwu.edu)
 # Date: Feb 22, 2017
 # This is a niave baseline implimentation for a generative machine learning model that 
-# attempts to approximate a given image using an evolutionary algorithm.
-# NOTES: pip installed futures into tf12GPU venv
+# approximates a given image using an evolutionary algorithm.
+# NOTES: pip installed futures, pip install numpy, pip install scipy
+
+
 import scipy.misc as sci
 import numpy as np
 import random, time, threading
