@@ -108,6 +108,7 @@ def evaluate(sample, label):
         #            error+= abs(c - z)
         
         can.fitness = 1.0/error
+	return sample
 
 def crossover(p_a, p_b):
     """
@@ -178,8 +179,19 @@ if __name__ == '__main__':
         print i.fitness
     while iteration < epoch: 
         
-        evaluate(p.pop, label)
-       
+        #pool = Pool(8)                         # Create a multiprocessing Pool
+  	pool = Pool() 
+
+    	evaluated = pool.map(evaluate, (p.pop, label))
+    	pool.close()
+    	pool.join()
+	p.pop = evaluated
+        #for c in p.pop:
+        #	Thread(evaluate, [c], label)
+        #evaluate(p.pop, label)
+        #with concurrent.futures.ThreadPoolExecutor(max_workers=args.P) as executor: #possible race condition
+        #    future_to_url = {executor.submit(evaluate, c, label): c for c in p.pop}
+        
         for i in xrange(args.P/2):
             parent_a = tournament_select(p.pop, t_size, 3)
             parent_b = tournament_select(p.pop, t_size, 2)
