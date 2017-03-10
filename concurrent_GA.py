@@ -2,16 +2,15 @@
 # Date: Feb 22, 2017
 # This is a niave baseline implimentation for a generative machine learning model that 
 # approximates a given image using an evolutionary algorithm.
-# NOTES: pip installed futures, pip install numpy, pip install scipy
-
-
+# NOTES: pip installed futures, pip install numpy, pip instal
 import scipy.misc as sci
 import numpy as np
 import random, time, threading
 import concurrent.futures
-import multiprocessing
+from multiprocessing import Pool
 import argparse
 import os
+from functools import partial
 label_shape = []
 
 def get_parser():
@@ -25,8 +24,8 @@ def get_parser():
     parser.add_argument('-epochs', type=int, default=100, help='Number of iterations to train over')
     parser.add_argument('-mutation_prob', nargs='+', type=float, default=[0.15, 0.05],
                         help='chance for a candidate to be randomly mutated.\nCan assign up to 2 unique values here (one for each child produced in crossover).')
-    parser.add_argument("-print_on_epoch",
-                        type=int, default=0, 
+    parser.add_argument("-print_interval",
+                        type=int, default=100, 
 			help="Prints an image every interval of epochs specified.")
     parser.add_argument('-P', type=int, default=500, help='Population size.')
     parser.add_argument('-ds', type=float, default=80,
@@ -92,23 +91,25 @@ class population:
 
 
 
-def evaluate(sample, label):
+def evaluate(label, sample):
     """
     Evaluates how close a candidate is to the input image label. 
     Updates a candidate's fitness. 
     """
-    for can in sample:
-        error = np.sum(np.absolute(np.subtract(label, can.img)))
+    #for can in sample:
+    
+    #error = np.sum(np.absolute(np.subtract(label, sample.img)))
+    
         #can.fitness = 1.0/error
         
-        #error = 0;
-        #for x,a in zip(can.img,label):
-        #    for y,b in zip(x,a):
-        #        for z,c in zip(y,b):
-        #            error+= abs(c - z)
-        
-        can.fitness = 1.0/error
-	return sample
+    error = 0;
+    for x,a in zip(sample.img,label):
+        for y,b in zip(x,a):
+            for z,c in zip(y,b):
+                error+= abs(c - z)
+    
+    sample.fitness = 1.0/error
+    return sample
 
 def crossover(p_a, p_b):
     """
@@ -167,22 +168,26 @@ def replacement():
 if __name__ == '__main__':
     args = get_parser().parse_args()
     label = sci.imread(args.image_file)
-    label = sci.imread('/home/knowlen/Pictures/goog.png')
+    #label = sci.imread('/home/knowlen/Pictures/goog.png')
     label = sci.imresize(label, args.ds)
     label_shape = label.shape
     t_size = 2 #add to argparse later. Should typically be 2 anyways. 
     p = population(args.P) 
     epoch = args.epochs
-    evaluate(p.pop, label)
+    #evaluate(p.pop, label)
     iteration = 0
-    for i in p.pop:
-        print i.fitness
+    #for i in p.pop:
+    #    print i.fitness
+    img_dir = args.results_folder + '/concurrent__P_' + str(args.P) + '__MaxEpoch_' + str(epoch) 
+    os.system('mkdir ' + img_dir) 
+    interval = args.print_interval 
     while iteration < epoch: 
         
-        #pool = Pool(8)                         # Create a multiprocessing Pool
-  	pool = Pool() 
-
-    	evaluated = pool.map(evaluate, (p.pop, label))
+# Multi processing because Python doesn't support real multi-threading. 
+  	pool = Pool(8) 
+# partial is needed to pass multiple args to a process function. 
+        func = partial(evaluate, label)
+    	evaluated = pool.map(func, p.pop)
     	pool.close()
     	pool.join()
 	p.pop = evaluated
@@ -208,20 +213,30 @@ if __name__ == '__main__':
             #print parent_b.fitness
             if parent_a.fitness < parent_b.fitness:
                 p.pop.remove(parent_a) #change later
-            elif parent_b.fitness < parent_a.fitness:
+            else: #parent_b.fitness < parent_a.fitness:
                 p.pop.remove(parent_b)
         
         p.pop = p.children
         p.children = [] # possible memory errors here.
         iteration = iteration + 1
-        print iteration
-
-    evaluate(p.pop, label)
+        #print iteration
+        if iteration % interval == 0:
+            out_fn = img_dir + '/' + str(iteration) + '.png'
+            sci.imsave(out_fn, sci.imresize(p.pop[0].img,100))
+    
+    pool = Pool(8) 
+# partial is needed to pass multiple args to a process function. 
+    func = partial(evaluate, label)
+    evaluated = pool.map(func, p.pop)
+    pool.close()
+    pool.join()
+    p.pop = evaluated
+    #evaluate(label, p.pop)
     p.pop.sort(key=lambda x: x.fitness, reverse=True)
-    for i in p.pop:
-        print i.fitness
+   # for i in p.pop:
+   #     print i.fitness
 #sci.imshow(sci.imresize(p.pop[0].img, 1000))
-    out_fn = args.results_folder + '/results.png'
+    out_fn = img_dir + '/final_result.png'
     if not os.path.isdir(args.results_folder):
         os.mkdir(args.results_folder) 
     sci.imsave(out_fn, sci.imresize(p.pop[0].img, 100))

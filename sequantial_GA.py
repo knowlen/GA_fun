@@ -98,14 +98,14 @@ def evaluate(sample, label):
     Updates a candidate's fitness. 
     """
     for can in sample:
-        error = np.sum(np.absolute(np.subtract(label, can.img)))
+        #error = np.sum(np.absolute(np.subtract(label, can.img)))
         #can.fitness = 1.0/error
         
-        #error = 0;
-        #for x,a in zip(can.img,label):
-        #    for y,b in zip(x,a):
-        #        for z,c in zip(y,b):
-        #            error+= abs(c - z)
+        error = 0;
+        for x,a in zip(can.img,label):
+            for y,b in zip(x,a):
+                for z,c in zip(y,b):
+                    error+= abs(c - z)
         
         can.fitness = 1.0/error
 
